@@ -4,60 +4,59 @@ import re
 from datetime import time
 
 # Cấu hình trang
-st.set_page_config(page_title="Tool xếp lịch tập VVC", layout="wide")
+st.set_page_config(page_title="Tool xếp lịch VVC", layout="wide")
 
-# --- CSS CAO CẤP ---
+# --- CSS DARK MODE (GIỮ NGUYÊN) ---
 st.markdown("""
 <style>
     .task-card {
-        background-color: white; padding: 12px 20px; border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #6366f1;
-        margin-bottom: 8px; transition: all 0.3s ease; color: #1f2937;
-        font-family: 'Segoe UI', sans-serif;
+        padding: 12px 20px; border-radius: 8px; margin-bottom: 8px; 
+        background-color: #262730 !important; border: 1px solid #41424C;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: 'Segoe UI', sans-serif;
     }
-    .task-card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.1); transform: translateY(-2px); }
-    @keyframes subtle-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); border-left-color: #6366f1; }
-        70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); border-left-color: #10b981; }
-        100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); border-left-color: #6366f1; }
+    .prio-1 { border-left: 6px solid #ef4444; } 
+    .prio-2 { border-left: 6px solid #3b82f6; } 
+    .prio-3 { border-left: 6px solid #9ca3af; } 
+    .badge {
+        display: inline-block; padding: 2px 8px; border-radius: 12px;
+        font-size: 0.75rem; font-weight: bold; color: white !important; 
+        margin-right: 8px; vertical-align: middle;
     }
-    .moved-card { animation: subtle-pulse 1s ease-out; background-color: #f8fafc; }
-    div[data-testid="stHorizontalBlock"] button {
-        background-color: transparent; border: 1px solid #e5e7eb; color: #6b7280;
-        border-radius: 6px; transition: all 0.2s; height: 2.8rem;
+    .bg-1 { background-color: #ef4444; }
+    .bg-2 { background-color: #3b82f6; }
+    .bg-3 { background-color: #6b7280; }
+    .task-title { 
+        font-weight: 700 !important; font-size: 1.1rem !important; 
+        color: #ffffff !important; vertical-align: middle;
     }
-    div[data-testid="stHorizontalBlock"] button:hover {
-        border-color: #6366f1; color: #6366f1; background-color: #eef2ff;
+    .task-meta { 
+        color: #d1d5db !important; font-size: 0.9rem !important; margin-top: 6px;
     }
-    div[data-testid="stHorizontalBlock"] button:hover p:contains("✕") { color: #ef4444 !important; }
-    .task-title { font-weight: 600; font-size: 1.05rem; }
-    .task-meta { color: #6b7280; font-size: 0.85rem; margin-top: 4px; }
+    .time-limit-tag {
+        font-size: 0.8rem; color: #fbbf24 !important; background-color: #451a03 !important;
+        padding: 2px 8px; border-radius: 4px; border: 1px solid #b45309;
+        margin-left: 8px; font-weight: 600; vertical-align: middle; display: inline-block;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 if 'tasks' not in st.session_state: st.session_state['tasks'] = []
-if 'last_moved_idx' not in st.session_state: st.session_state['last_moved_idx'] = -1
 
-st.title("📅 Tool xếp lịch tập VVC")
+st.title("📅 Tool xếp lịch VVC")
 st.markdown("---")
 
 # 1. UPLOAD
 st.sidebar.header("📥 Dữ liệu nguồn")
 uploaded_file = st.sidebar.file_uploader("Thả file CSV vào đây", type=['csv'])
 
-# --- TỪ ĐIỂN VIỆT HÓA ---
-WEEKDAY_MAP = {
-    "Monday": "Thứ 2", "Tuesday": "Thứ 3", "Wednesday": "Thứ 4",
-    "Thursday": "Thứ 5", "Friday": "Thứ 6", "Saturday": "Thứ 7", "Sunday": "CN"
-}
-
+# --- HÀM XỬ LÝ ---
+WEEKDAY_MAP = {"Monday": "Thứ 2", "Tuesday": "Thứ 3", "Wednesday": "Thứ 4", "Thursday": "Thứ 5", "Friday": "Thứ 6", "Saturday": "Thứ 7", "Sunday": "CN"}
 def translate_days(text):
     txt = str(text)
-    for eng, vie in WEEKDAY_MAP.items():
+    for eng, vie in WEEKDAY_MAP.items(): 
         if eng in txt: txt = txt.replace(eng, vie)
     return txt
 
-# --- HÀM XỬ LÝ ---
 def parse_hour_value(time_str):
     ts = str(time_str).upper().strip()
     hour = 0; minute = 0
@@ -65,49 +64,83 @@ def parse_hour_value(time_str):
         is_pm = "PM" in ts
         nums = re.findall(r'\d+', ts)
         if nums:
-            hour = int(nums[0])
-            if len(nums) > 1: minute = int(nums[1])
-            if is_pm and hour < 12: hour += 12
-            if not is_pm and hour == 12: hour = 0
+            hour = int(nums[0]); 
+            if len(nums)>1: minute = int(nums[1])
+            if is_pm and hour<12: hour+=12
+            if not is_pm and hour==12: hour=0
     else:
-        parts = ts.split()
-        time_part = parts[-1] if parts else ""
+        parts = ts.split(); time_part = parts[-1] if parts else ""
         if ":" in time_part:
-            try: h, m = map(int, time_part.split(":")[:2]); hour = h; minute = m
+            try: h, m = map(int, time_part.split(":")[:2]); hour=h; minute=m
             except: pass
         else:
-            nums = re.findall(r'\d+', ts)
+            nums = re.findall(r'\d+', ts); 
             if nums: hour = int(nums[-1])
     return hour + minute/60.0
 
 def load_data(file):
     df = pd.read_csv(file)
-    time_col = df.columns[0]
-    people_cols = df.columns[1:]
-    
+    time_col = df.columns[0]; people_cols = df.columns[1:]
     df_people = df[people_cols].fillna(0).apply(pd.to_numeric, errors='coerce').fillna(0)
     df['Time'] = df[time_col]
     df['HourVal'] = df['Time'].apply(parse_hour_value)
-    
     def extract_strict_date(t_str):
         s = str(t_str).strip()
         match = re.search(r'^(.*?\d{1,2}/\d{1,2})', s)
         if match: return match.group(1).strip()
         return re.sub(r'\s+(\d{1,2}:\d{2}.*|\d{1,2}\s*[AP]M)$', '', s, flags=re.IGNORECASE).strip()
-
     df['DateOnly'] = df['Time'].apply(extract_strict_date)
     return df, df_people, list(people_cols)
 
-def move_task(index, direction):
-    tasks = st.session_state['tasks']
-    new_idx = index
-    if direction == 'up' and index > 0:
-        tasks[index], tasks[index-1] = tasks[index-1], tasks[index]
-        new_idx = index - 1
-    elif direction == 'down' and index < len(tasks) - 1:
-        tasks[index], tasks[index+1] = tasks[index+1], tasks[index]
-        new_idx = index + 1
-    st.session_state['last_moved_idx'] = new_idx
+def sort_tasks():
+    st.session_state['tasks'] = sorted(st.session_state['tasks'], key=lambda x: x['prio_val'])
+
+# Hàm tìm ngày đông nhất
+def find_best_day(df, df_people):
+    dates = df['DateOnly'].unique()
+    best_d = None
+    max_concurrent = -1
+    
+    for d in dates:
+        mask = df['DateOnly'] == d
+        # Tính tổng số người rảnh tại mỗi khung giờ trong ngày đó
+        counts = df_people.loc[mask].sum(axis=1)
+        if not counts.empty:
+            peak = counts.max() # Đỉnh điểm của ngày đó
+            if peak > max_concurrent:
+                max_concurrent = peak
+                best_d = d
+    return best_d, int(max_concurrent)
+
+# Hàm phân tích slot cho thuật toán V21
+def analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end):
+    slots_needed = int(task['duration'] / 15)
+    curr_mems = task['members']
+    
+    v_start = global_start
+    v_end = global_end
+    if task['use_custom']:
+        v_start = max(global_start, task['c_start'])
+        v_end = min(global_end, task['c_end'])
+    
+    valid_options = []
+    
+    for i in range(len(df_day) - slots_needed + 1):
+        s_time = df_day.loc[i, 'HourVal']
+        e_time = df_day.loc[min(i+slots_needed, len(df_day)-1), 'HourVal']
+        if i+slots_needed >= len(df_day): e_time = 24.0
+        
+        if s_time < v_start or e_time > v_end: continue
+        if any(occupied[i:i+slots_needed]): continue
+        
+        block = df_ppl_day.iloc[i:i+slots_needed][curr_mems]
+        counts = block.sum(axis=0)
+        full_ppl = counts[counts == slots_needed].index.tolist()
+        score = len(full_ppl)
+        
+        valid_options.append({'index': i, 'score': score, 'attendees': full_ppl})
+            
+    return valid_options
 
 if uploaded_file is not None:
     try:
@@ -118,148 +151,180 @@ if uploaded_file is not None:
         
         st.sidebar.success(f"✅ Đã tải: {len(unique_dates_raw)} ngày | {len(all_members)} người.")
 
-        # ==========================================
-        # 🛠️ ADMIN TOOLS (ĐÃ KHÔI PHỤC)
-        # ==========================================
-        with st.expander("🛠️ Admin Tools (Xuất dữ liệu tổng hợp)", expanded=False):
-            st.info("Bấm nút bên dưới để tải file Excel chứa toàn bộ dữ liệu. Dùng để đối chiếu thủ công.")
-            
-            # Logic tạo file Master
+        with st.expander("🛠️ Admin Tools", expanded=False):
             if st.button("⚡ Tạo Master File"):
                 df_admin = pd.DataFrame()
-                # Việt hóa cột thời gian luôn cho đẹp
                 df_admin['Thời gian'] = df['Time'].apply(translate_days)
-                
-                # Phân loại Sáng/Chiều sơ bộ
-                df_admin['Buổi'] = df['HourVal'].apply(lambda h: "Sáng" if h < 12 else "Chiều")
-                
-                # Đếm tổng người
                 df_admin['Tổng rảnh'] = df_people.sum(axis=1)
-                
-                # Nối tên người (Thay hàm TEXTJOIN)
-                def get_names(row):
-                    return ", ".join(row.index[row == 1].tolist())
-                df_admin['Danh sách tên'] = df_people.apply(get_names, axis=1)
-                
-                # Xuất file
-                csv_admin = df_admin.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="📥 Tải xuống Master_Data.csv",
-                    data=csv_admin,
-                    file_name="Master_Data_Admin.csv",
-                    mime="text/csv"
-                )
+                df_admin['Danh sách tên'] = df_people.apply(lambda r: ", ".join(r.index[r==1].tolist()), axis=1)
+                st.download_button("📥 Tải Master Data", df_admin.to_csv(index=False).encode('utf-8-sig'), "Master_Data.csv", "text/csv")
 
-        # --- CẤU HÌNH ---
-        st.header("⚙️ Cấu hình")
-        c1, c2 = st.columns([1, 2])
-        with c1:
-            selected_date_display = st.selectbox("Chọn Ngày:", unique_dates_display)
-            selected_date_raw = date_map[selected_date_display]
-        with c2:
-            time_mode = st.radio("Khung giờ:", ["Cả ngày", "Sáng (<12h)", "Chiều (>12h)", "Custom"], horizontal=True)
-
-        start_val, end_val = 0.0, 24.0
-        if time_mode == "Sáng (<12h)": start_val, end_val = 6.0, 12.0
-        elif time_mode == "Chiều (>12h)": start_val, end_val = 12.0, 23.0
-        elif time_mode == "Custom":
-            tc1, tc2 = st.columns(2)
-            with tc1: t_start = st.time_input("Từ:", value=time(13, 30))
-            with tc2: t_end = st.time_input("Đến:", value=time(21, 0))
-            start_val = t_start.hour + t_start.minute/60.0
-            end_val = t_end.hour + t_end.minute/60.0
-
-        mask = (df['DateOnly'] == selected_date_raw) & (df['HourVal'] >= start_val) & (df['HourVal'] < end_val)
-        df_filtered = df.loc[mask].reset_index(drop=True)
-        df_people_filtered = df_people.loc[mask].reset_index(drop=True)
+        # ==========================================
+        # ⚙️ CẤU HÌNH CHUNG (CÓ TÍNH NĂNG MỚI)
+        # ==========================================
+        st.header("⚙️ Cấu hình Chung")
         
-        if df_filtered.empty:
-            st.warning("⚠️ Không có giờ trống!")
-        else:
-            st.success(f"Sẵn sàng xếp lịch ({len(df_filtered)} slots)")
+        # Tìm ngày đông nhất trước để hiển thị info
+        best_day_raw, best_day_peak = find_best_day(df, df_people)
+        
+        c1, c2 = st.columns([1.5, 2])
+        with c1:
+            # Chọn chế độ ngày
+            day_mode = st.radio("Chế độ chọn ngày:", ["🎯 Thủ công", "🏆 Tự động (Ngày đông nhất)"], horizontal=True)
+            
+            if day_mode == "🎯 Thủ công":
+                sel_date_display = st.selectbox("Chọn Ngày:", unique_dates_display)
+                sel_date_raw = date_map[sel_date_display]
+            else:
+                # Chế độ tự động
+                if best_day_raw:
+                    st.success(f"✅ Đã chọn: **{translate_days(best_day_raw)}**")
+                    st.caption(f"Lý do: Ngày này có khung giờ đạt đỉnh **{best_day_peak}** người rảnh.")
+                    sel_date_raw = best_day_raw
+                else:
+                    st.error("Không tìm thấy ngày nào!")
+                    sel_date_raw = unique_dates_raw[0]
 
+        with c2:
+            t_mode = st.radio("Giới hạn chung:", ["Cả ngày", "Sáng (<12h)", "Chiều (>12h)", "🔧 Tự nhập (Global)"], horizontal=True)
+
+        global_start, global_end = 0.0, 24.0
+        if t_mode == "Sáng (<12h)": global_start, global_end = 6.0, 12.0
+        elif t_mode == "Chiều (>12h)": global_start, global_end = 12.0, 23.0
+        elif t_mode == "🔧 Tự nhập (Global)":
+            tc1, tc2 = st.columns(2)
+            with tc1: g_s = st.time_input("Toàn bộ lịch từ:", value=time(13, 30))
+            with tc2: g_e = st.time_input("Đến:", value=time(21, 0))
+            global_start = g_s.hour + g_s.minute/60.0
+            global_end = g_e.hour + g_e.minute/60.0
+
+        mask_day = df['DateOnly'] == sel_date_raw
+        df_day = df.loc[mask_day].reset_index(drop=True)
+        df_ppl_day = df_people.loc[mask_day].reset_index(drop=True)
+        
+        if df_day.empty: st.warning("⚠️ Ngày này không có dữ liệu!"); st.stop()
         st.markdown("---")
 
-        # --- DANH SÁCH BÀI TẬP ---
-        st.header("📋 Danh sách Ưu tiên")
+        # NHẬP LIỆU
+        st.header("📋 Thêm Bài Tập")
         with st.container():
-            ic1, ic2, ic3, ic4 = st.columns([3, 3, 2, 1.5])
-            with ic1: t_name = st.text_input("Tên bài", placeholder="VD: Trà và cà phê", label_visibility="collapsed")
-            with ic2: 
-                use_all = st.checkbox("All Member")
-                t_mem = all_members if use_all else st.multiselect("Thành viên", all_members, label_visibility="collapsed", placeholder="Chọn người...")
-            with ic3: t_dur = st.selectbox("Thời lượng", [45, 60, 90, 120], index=1, label_visibility="collapsed")
-            with ic4: 
-                if st.button("➕ Thêm", type="primary", use_container_width=True):
-                    if t_name and t_mem:
-                        st.session_state['tasks'].append({"name": t_name, "members": t_mem, "duration": t_dur})
-                        st.session_state['last_moved_idx'] = len(st.session_state['tasks']) - 1
-                        st.rerun()
+            r1c1, r1c2 = st.columns([1, 1])
+            with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Múa Quạt")
+            with r1c2: 
+                use_all = st.checkbox("Chọn tất cả")
+                t_mem = all_members if use_all else st.multiselect("Thành viên", all_members, placeholder="Chọn người...")
+            
+            r2c1, r2c2 = st.columns([1, 1])
+            with r2c1: t_dur = st.selectbox("Thời lượng", [45, 60, 90, 120, 150], index=1)
+            with r2c2: 
+                prio_options = {"🔥 VIP (Ưu tiên 1)": 1, "💎 Tiêu chuẩn (Ưu tiên 2)": 2, "🐢 Chốt sổ (Ưu tiên 3)": 3}
+                t_prio_label = st.selectbox("Mức độ ưu tiên", list(prio_options.keys()), index=1)
+                t_prio_val = prio_options[t_prio_label]
+
+            with st.expander("⏳ Giới hạn giờ riêng (Nếu cần)", expanded=False):
+                use_custom_time = st.checkbox("Bật giới hạn riêng")
+                ct_start, ct_end = 0.0, 24.0
+                if use_custom_time:
+                    tc1, tc2 = st.columns(2)
+                    with tc1: t_s = st.time_input("Chỉ bắt đầu từ:", value=time(14, 0))
+                    with tc2: t_e = st.time_input("Phải xong trước:", value=time(17, 0))
+                    ct_start = t_s.hour + t_s.minute/60.0
+                    ct_end = t_e.hour + t_e.minute/60.0
+            
+            if st.button("➕ THÊM BÀI", type="primary", use_container_width=True):
+                if t_name and t_mem:
+                    st.session_state['tasks'].append({
+                        "name": t_name, "members": t_mem, "duration": t_dur,
+                        "prio_label": t_prio_label, "prio_val": t_prio_val,
+                        "use_custom": use_custom_time, "c_start": ct_start, "c_end": ct_end
+                    })
+                    sort_tasks()
+                    st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
 
         if st.session_state['tasks']:
             for i, t in enumerate(st.session_state['tasks']):
-                col_card, col_up, col_down, col_del = st.columns([7, 0.6, 0.6, 0.6])
-                with col_card:
-                    css_class = "task-card"
-                    if i == st.session_state['last_moved_idx']: css_class += " moved-card"
-                    st.markdown(f"""
-                    <div class="{css_class}">
-                        <div class="task-title">#{i+1}. {t['name']}</div>
-                        <div class="task-meta">⏱️ {t['duration']} phút • 👥 {len(t['members'])} thành viên</div>
-                    </div>""", unsafe_allow_html=True)
-                with col_up:
-                    if i > 0 and st.button("▲", key=f"u{i}"): move_task(i, 'up'); st.rerun()
-                with col_down:
-                    if i < len(st.session_state['tasks']) - 1 and st.button("▼", key=f"d{i}"): move_task(i, 'down'); st.rerun()
-                with col_del:
-                    if st.button("✕", key=f"del{i}"): st.session_state['tasks'].pop(i); st.session_state['last_moved_idx'] = -1; st.rerun()
-            
+                c_card, c_del = st.columns([9, 0.5])
+                with c_card:
+                    prio_class = f"prio-{t['prio_val']}"
+                    bg_class = f"bg-{t['prio_val']}"
+                    short_label = "VIP" if t['prio_val']==1 else ("STD" if t['prio_val']==2 else "LAST")
+                    time_tag = ""
+                    if t['use_custom']:
+                        h_s = int(t['c_start']); m_s = int((t['c_start']-h_s)*60)
+                        h_e = int(t['c_end']); m_e = int((t['c_end']-h_e)*60)
+                        time_tag = f"<span class='time-limit-tag'>⏰ {h_s:02}:{m_s:02} - {h_e:02}:{m_e:02}</span>"
+                    st.markdown(f"""<div class="task-card {prio_class}"><span class="badge {bg_class}">{short_label}</span><span class="task-title"> {t['name']}</span> {time_tag}<div class="task-meta">⏱️ {t['duration']} phút • 👥 {len(t['members'])} thành viên</div></div>""", unsafe_allow_html=True)
+                with c_del:
+                    st.write(""); 
+                    if st.button("✕", key=f"d{i}"): st.session_state['tasks'].pop(i); st.rerun()
+
             st.markdown("---")
             
-            c_run, c_clear = st.columns([2, 8])
-            run_algo = False
-            with c_run:
-                if st.button("🚀 CHẠY XẾP LỊCH", type="primary", use_container_width=True): run_algo = True
-            with c_clear:
-                if st.button("🗑️ Xóa hết"): st.session_state['tasks'] = []; st.rerun()
-            
-            if run_algo:
-                if df_filtered.empty: st.error("Lỗi: Không có dữ liệu giờ!"); st.stop()
-                occupied = [False] * len(df_filtered)
-                sch = []
-                for task in st.session_state['tasks']:
-                    slots = int(task['duration'] / 15)
-                    curr_mems = task['members']
-                    best_sc, best_idx, best_ppl = -1, -1, []
-                    for i in range(len(df_filtered) - slots + 1):
-                        if any(occupied[i:i+slots]): continue
-                        block = df_people_filtered.iloc[i:i+slots][curr_mems]
-                        counts = block.sum(axis=0)
-                        full_ppl = counts[counts == slots].index.tolist()
-                        bonus = 0
-                        if i>0 and occupied[i-1]: bonus = 0.5
-                        if (i+slots)<len(occupied) and occupied[i+slots]: bonus = 0.5
-                        score = len(full_ppl) + bonus
-                        if score > best_sc: best_sc = score; best_idx = i; best_ppl = full_ppl
-                    
-                    if best_idx != -1:
-                        for k in range(best_idx, best_idx+slots): occupied[k] = True
-                        t_s = df_filtered.loc[best_idx, 'Time']
-                        t_e = df_filtered.loc[best_idx+slots, 'Time'] if (best_idx+slots)<len(df_filtered) else "Hết"
-                        miss = list(set(curr_mems) - set(best_ppl))
-                        sch.append({"Thứ tự": f"#{st.session_state['tasks'].index(task)+1}", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{len(best_ppl)}/{len(curr_mems)}", "Vắng": ", ".join(miss) if miss else "-"})
+            if st.button("🚀 CHẠY XẾP LỊCH", type="primary", use_container_width=True):
+                occupied = [False] * len(df_day)
+                final_schedule_list = []
+                
+                vip_tasks = [t for t in st.session_state['tasks'] if t['prio_val'] == 1]
+                std_tasks = [t for t in st.session_state['tasks'] if t['prio_val'] == 2]
+                last_tasks = [t for t in st.session_state['tasks'] if t['prio_val'] == 3]
+
+                # 1. VIP
+                for task in vip_tasks:
+                    opts = analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end)
+                    if opts:
+                        best_opt = max(opts, key=lambda x: x['score'])
+                        idx = best_opt['index']
+                        slots = int(task['duration']/15)
+                        for k in range(idx, idx+slots): occupied[k] = True
+                        t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
+                        miss = list(set(task['members']) - set(best_opt['attendees']))
+                        final_schedule_list.append({"Loại": "VIP", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
                     else:
-                        sch.append({"Thứ tự": "-", "Bài": task['name'], "Thời gian": "❌ Kẹt", "Sĩ số": "0", "Vắng": "-"})
+                        final_schedule_list.append({"Loại": "VIP", "Bài": task['name'], "Thời gian": "❌ Kẹt/Sai giờ", "Sĩ số": "0", "Vắng": "-", "sort_time": "Z"})
+
+                # 2. STD (SCARCITY)
+                while std_tasks:
+                    candidates = []
+                    for task in std_tasks:
+                        options = analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end)
+                        if not options: continue
+                        max_score_possible = max(o['score'] for o in options)
+                        best_options = [o for o in options if o['score'] == max_score_possible]
+                        flexibility = len(best_options)
+                        chosen_opt = best_options[0]
+                        candidates.append({'task': task, 'score': max_score_possible, 'flexibility': flexibility, 'opt': chosen_opt})
+                    
+                    if not candidates:
+                        for t in std_tasks: final_schedule_list.append({"Loại": "STD", "Bài": t['name'], "Thời gian": "❌ Kẹt/Sai giờ", "Sĩ số": "0", "Vắng": "-", "sort_time": "Z"})
+                        break
+                    
+                    candidates.sort(key=lambda x: (x['score'], -x['flexibility'], len(x['task']['members'])), reverse=True)
+                    winner = candidates[0]
+                    task = winner['task']; idx = winner['opt']['index']; slots = int(task['duration']/15)
+                    for k in range(idx, idx+slots): occupied[k] = True
+                    t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
+                    miss = list(set(task['members']) - set(winner['opt']['attendees']))
+                    final_schedule_list.append({"Loại": "STD", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{winner['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
+                    std_tasks.remove(task)
+
+                # 3. LAST
+                for task in last_tasks:
+                    opts = analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end)
+                    if opts:
+                        best_opt = max(opts, key=lambda x: x['score'])
+                        idx = best_opt['index']; slots = int(task['duration']/15)
+                        for k in range(idx, idx+slots): occupied[k] = True
+                        t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
+                        miss = list(set(task['members']) - set(best_opt['attendees']))
+                        final_schedule_list.append({"Loại": "LAST", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
+                    else:
+                        final_schedule_list.append({"Loại": "LAST", "Bài": task['name'], "Thời gian": "❌ Kẹt/Sai giờ", "Sĩ số": "0", "Vắng": "-", "sort_time": "Z"})
                 
-                res = pd.DataFrame(sch).sort_values(by="Thời gian")
+                res = pd.DataFrame(final_schedule_list).sort_values(by="sort_time").drop(columns=["sort_time"])
                 res['Thời gian'] = res['Thời gian'].apply(translate_days)
-                
-                st.success(f"Đã xếp xong lịch cho ngày: {translate_days(selected_date_raw)}")
                 st.dataframe(res, hide_index=True, use_container_width=True)
-                
-                csv = res.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Tải CSV (Tiếng Việt)", csv, "Lich_Tap_Final.csv", "text/csv")
+                st.download_button("📥 Tải CSV", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Final.csv", "text/csv")
 
     except Exception as e: st.error(f"Lỗi: {e}")
