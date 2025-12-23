@@ -4,9 +4,9 @@ import re
 from datetime import time
 
 # Cấu hình trang
-st.set_page_config(page_title="Tool xếp lịch VVC", layout="wide")
+st.set_page_config(page_title="Tool xếp lịch tập VVC", layout="wide")
 
-# --- CSS DARK MODE (GIỮ NGUYÊN) ---
+# --- CSS DARK MODE ---
 st.markdown("""
 <style>
     .task-card {
@@ -42,7 +42,7 @@ st.markdown("""
 
 if 'tasks' not in st.session_state: st.session_state['tasks'] = []
 
-st.title("📅 Tool xếp lịch VVC")
+st.title("📅 Tool xếp lịch tập VVC")
 st.markdown("---")
 
 # 1. UPLOAD
@@ -56,6 +56,56 @@ def translate_days(text):
     for eng, vie in WEEKDAY_MAP.items(): 
         if eng in txt: txt = txt.replace(eng, vie)
     return txt
+
+# --- HÀM MỚI: FORMAT GIỜ ĐẸP (V24) ---
+def format_pretty_time(start_str, end_str):
+    # Xử lý trường hợp "Hết"
+    if str(end_str) == "Hết":
+        return f"{start_str} - Hết"
+
+    # 1. Lấy Thứ (Day) từ start_str
+    day_part = ""
+    for eng, vie in WEEKDAY_MAP.items():
+        if eng in str(start_str):
+            day_part = vie
+            break
+    
+    # 2. Hàm tách giờ:phút và AM/PM
+    def extract_hm_ampm(s):
+        s = str(s).upper()
+        # Tìm pattern HH:MM
+        match = re.search(r'(\d{1,2}):(\d{2})', s)
+        ampm_match = re.search(r'(AM|PM)', s)
+        
+        hm = ""
+        ampm = ""
+        if match:
+            h = int(match.group(1)) # Bỏ số 0 ở đầu (01 -> 1)
+            m = match.group(2)
+            hm = f"{h}h{m}"
+        
+        if ampm_match:
+            ampm = ampm_match.group(1)
+            
+        return hm, ampm
+
+    s_hm, s_ampm = extract_hm_ampm(start_str)
+    e_hm, e_ampm = extract_hm_ampm(end_str)
+    
+    # 3. Ghép chuỗi thông minh
+    # Nếu cùng là PM hoặc cùng AM -> Chỉ hiện 1 cái ở cuối
+    # VD: 1h15 - 2h00 PM
+    time_range = ""
+    if s_ampm and e_ampm:
+        if s_ampm == e_ampm:
+            time_range = f"{s_hm} - {e_hm} {e_ampm}"
+        else:
+            time_range = f"{s_hm} {s_ampm} - {e_hm} {e_ampm}"
+    else:
+        # Trường hợp 24h không có AM/PM
+        time_range = f"{s_hm} - {e_hm}"
+        
+    return f"{day_part} {time_range}"
 
 def parse_hour_value(time_str):
     ts = str(time_str).upper().strip()
@@ -95,36 +145,27 @@ def load_data(file):
 def sort_tasks():
     st.session_state['tasks'] = sorted(st.session_state['tasks'], key=lambda x: x['prio_val'])
 
-# Hàm tìm ngày đông nhất
 def find_best_day(df, df_people):
     dates = df['DateOnly'].unique()
     best_d = None
     max_concurrent = -1
-    
     for d in dates:
         mask = df['DateOnly'] == d
-        # Tính tổng số người rảnh tại mỗi khung giờ trong ngày đó
         counts = df_people.loc[mask].sum(axis=1)
         if not counts.empty:
-            peak = counts.max() # Đỉnh điểm của ngày đó
-            if peak > max_concurrent:
-                max_concurrent = peak
-                best_d = d
+            peak = counts.max()
+            if peak > max_concurrent: max_concurrent = peak; best_d = d
     return best_d, int(max_concurrent)
 
-# Hàm phân tích slot cho thuật toán V21
 def analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end):
     slots_needed = int(task['duration'] / 15)
     curr_mems = task['members']
-    
-    v_start = global_start
+    v_start = global_start 
     v_end = global_end
     if task['use_custom']:
-        v_start = max(global_start, task['c_start'])
         v_end = min(global_end, task['c_end'])
     
     valid_options = []
-    
     for i in range(len(df_day) - slots_needed + 1):
         s_time = df_day.loc[i, 'HourVal']
         e_time = df_day.loc[min(i+slots_needed, len(df_day)-1), 'HourVal']
@@ -137,7 +178,6 @@ def analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, globa
         counts = block.sum(axis=0)
         full_ppl = counts[counts == slots_needed].index.tolist()
         score = len(full_ppl)
-        
         valid_options.append({'index': i, 'score': score, 'attendees': full_ppl})
             
     return valid_options
@@ -159,31 +199,21 @@ if uploaded_file is not None:
                 df_admin['Danh sách tên'] = df_people.apply(lambda r: ", ".join(r.index[r==1].tolist()), axis=1)
                 st.download_button("📥 Tải Master Data", df_admin.to_csv(index=False).encode('utf-8-sig'), "Master_Data.csv", "text/csv")
 
-        # ==========================================
-        # ⚙️ CẤU HÌNH CHUNG (CÓ TÍNH NĂNG MỚI)
-        # ==========================================
         st.header("⚙️ Cấu hình Chung")
-        
-        # Tìm ngày đông nhất trước để hiển thị info
         best_day_raw, best_day_peak = find_best_day(df, df_people)
-        
         c1, c2 = st.columns([1.5, 2])
         with c1:
-            # Chọn chế độ ngày
             day_mode = st.radio("Chế độ chọn ngày:", ["🎯 Thủ công", "🏆 Tự động (Ngày đông nhất)"], horizontal=True)
-            
             if day_mode == "🎯 Thủ công":
                 sel_date_display = st.selectbox("Chọn Ngày:", unique_dates_display)
                 sel_date_raw = date_map[sel_date_display]
             else:
-                # Chế độ tự động
                 if best_day_raw:
                     st.success(f"✅ Đã chọn: **{translate_days(best_day_raw)}**")
                     st.caption(f"Lý do: Ngày này có khung giờ đạt đỉnh **{best_day_peak}** người rảnh.")
                     sel_date_raw = best_day_raw
                 else:
-                    st.error("Không tìm thấy ngày nào!")
-                    sel_date_raw = unique_dates_raw[0]
+                    st.error("Không tìm thấy ngày nào!"); sel_date_raw = unique_dates_raw[0]
 
         with c2:
             t_mode = st.radio("Giới hạn chung:", ["Cả ngày", "Sáng (<12h)", "Chiều (>12h)", "🔧 Tự nhập (Global)"], horizontal=True)
@@ -205,7 +235,6 @@ if uploaded_file is not None:
         if df_day.empty: st.warning("⚠️ Ngày này không có dữ liệu!"); st.stop()
         st.markdown("---")
 
-        # NHẬP LIỆU
         st.header("📋 Thêm Bài Tập")
         with st.container():
             r1c1, r1c2 = st.columns([1, 1])
@@ -221,22 +250,20 @@ if uploaded_file is not None:
                 t_prio_label = st.selectbox("Mức độ ưu tiên", list(prio_options.keys()), index=1)
                 t_prio_val = prio_options[t_prio_label]
 
-            with st.expander("⏳ Giới hạn giờ riêng (Nếu cần)", expanded=False):
-                use_custom_time = st.checkbox("Bật giới hạn riêng")
-                ct_start, ct_end = 0.0, 24.0
+            with st.expander("⏳ Ưu tiên kết thúc", expanded=False):
+                use_custom_time = st.checkbox("Đặt giờ kết thúc bắt buộc")
+                ct_end = 24.0
                 if use_custom_time:
-                    tc1, tc2 = st.columns(2)
-                    with tc1: t_s = st.time_input("Chỉ bắt đầu từ:", value=time(14, 0))
-                    with tc2: t_e = st.time_input("Phải xong trước:", value=time(17, 0))
-                    ct_start = t_s.hour + t_s.minute/60.0
+                    t_e = st.time_input("Phải tập xong TRƯỚC lúc:", value=time(17, 0))
                     ct_end = t_e.hour + t_e.minute/60.0
+                    st.caption(f"👉 Bài này có thể bắt đầu bất cứ lúc nào, miễn là xong trước **{t_e.strftime('%H:%M')}**")
             
             if st.button("➕ THÊM BÀI", type="primary", use_container_width=True):
                 if t_name and t_mem:
                     st.session_state['tasks'].append({
                         "name": t_name, "members": t_mem, "duration": t_dur,
                         "prio_label": t_prio_label, "prio_val": t_prio_val,
-                        "use_custom": use_custom_time, "c_start": ct_start, "c_end": ct_end
+                        "use_custom": use_custom_time, "c_start": 0.0, "c_end": ct_end
                     })
                     sort_tasks()
                     st.rerun()
@@ -252,9 +279,8 @@ if uploaded_file is not None:
                     short_label = "VIP" if t['prio_val']==1 else ("STD" if t['prio_val']==2 else "LAST")
                     time_tag = ""
                     if t['use_custom']:
-                        h_s = int(t['c_start']); m_s = int((t['c_start']-h_s)*60)
                         h_e = int(t['c_end']); m_e = int((t['c_end']-h_e)*60)
-                        time_tag = f"<span class='time-limit-tag'>⏰ {h_s:02}:{m_s:02} - {h_e:02}:{m_e:02}</span>"
+                        time_tag = f"<span class='time-limit-tag'>🏁 Trước {h_e:02}:{m_e:02}</span>"
                     st.markdown(f"""<div class="task-card {prio_class}"><span class="badge {bg_class}">{short_label}</span><span class="task-title"> {t['name']}</span> {time_tag}<div class="task-meta">⏱️ {t['duration']} phút • 👥 {len(t['members'])} thành viên</div></div>""", unsafe_allow_html=True)
                 with c_del:
                     st.write(""); 
@@ -262,7 +288,7 @@ if uploaded_file is not None:
 
             st.markdown("---")
             
-            if st.button("🚀 CHẠY XẾP LỊCH", type="primary", use_container_width=True):
+            if st.button("🚀 CHẠY TIẾN TRÌNH LÊN LỊCH", type="primary", use_container_width=True):
                 occupied = [False] * len(df_day)
                 final_schedule_list = []
                 
@@ -275,12 +301,13 @@ if uploaded_file is not None:
                     opts = analyze_task_options(task, df_day, df_ppl_day, occupied, global_start, global_end)
                     if opts:
                         best_opt = max(opts, key=lambda x: x['score'])
-                        idx = best_opt['index']
-                        slots = int(task['duration']/15)
+                        idx = best_opt['index']; slots = int(task['duration']/15)
                         for k in range(idx, idx+slots): occupied[k] = True
                         t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
                         miss = list(set(task['members']) - set(best_opt['attendees']))
-                        final_schedule_list.append({"Loại": "VIP", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
+                        # ÁP DỤNG FORMAT GIỜ MỚI
+                        pretty_time = format_pretty_time(t_s, t_e)
+                        final_schedule_list.append({"Loại": "VIP", "Bài": task['name'], "Thời gian": pretty_time, "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
                     else:
                         final_schedule_list.append({"Loại": "VIP", "Bài": task['name'], "Thời gian": "❌ Kẹt/Sai giờ", "Sĩ số": "0", "Vắng": "-", "sort_time": "Z"})
 
@@ -306,7 +333,9 @@ if uploaded_file is not None:
                     for k in range(idx, idx+slots): occupied[k] = True
                     t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
                     miss = list(set(task['members']) - set(winner['opt']['attendees']))
-                    final_schedule_list.append({"Loại": "STD", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{winner['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
+                    # ÁP DỤNG FORMAT GIỜ MỚI
+                    pretty_time = format_pretty_time(t_s, t_e)
+                    final_schedule_list.append({"Loại": "STD", "Bài": task['name'], "Thời gian": pretty_time, "Sĩ số": f"{winner['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
                     std_tasks.remove(task)
 
                 # 3. LAST
@@ -318,12 +347,14 @@ if uploaded_file is not None:
                         for k in range(idx, idx+slots): occupied[k] = True
                         t_s = df_day.loc[idx, 'Time']; t_e = df_day.loc[idx+slots, 'Time'] if (idx+slots)<len(df_day) else "Hết"
                         miss = list(set(task['members']) - set(best_opt['attendees']))
-                        final_schedule_list.append({"Loại": "LAST", "Bài": task['name'], "Thời gian": f"{t_s} - {t_e}", "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
+                        # ÁP DỤNG FORMAT GIỜ MỚI
+                        pretty_time = format_pretty_time(t_s, t_e)
+                        final_schedule_list.append({"Loại": "LAST", "Bài": task['name'], "Thời gian": pretty_time, "Sĩ số": f"{best_opt['score']}/{len(task['members'])}", "Vắng": ", ".join(miss) if miss else "-", "sort_time": t_s})
                     else:
                         final_schedule_list.append({"Loại": "LAST", "Bài": task['name'], "Thời gian": "❌ Kẹt/Sai giờ", "Sĩ số": "0", "Vắng": "-", "sort_time": "Z"})
                 
                 res = pd.DataFrame(final_schedule_list).sort_values(by="sort_time").drop(columns=["sort_time"])
-                res['Thời gian'] = res['Thời gian'].apply(translate_days)
+                # Bỏ dòng translate_days ở đây vì đã xử lý trong format_pretty_time rồi
                 st.dataframe(res, hide_index=True, use_container_width=True)
                 st.download_button("📥 Tải CSV", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Final.csv", "text/csv")
 
