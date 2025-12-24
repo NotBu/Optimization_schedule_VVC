@@ -235,7 +235,7 @@ if uploaded_file is not None:
         if df_day.empty: st.warning("⚠️ Ngày này không có dữ liệu!"); st.stop()
         st.markdown("---")
 
-        st.header("📋 Thêm Bài Tập")
+        st.header("📋 Thêm Lịch Tập")
         with st.container():
             r1c1, r1c2 = st.columns([1, 1])
             with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Múa Quạt")
@@ -359,3 +359,4 @@ if uploaded_file is not None:
                 st.download_button("📥 Tải CSV", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Final.csv", "text/csv")
 
     except Exception as e: st.error(f"Lỗi: {e}")
+
