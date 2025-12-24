@@ -238,7 +238,7 @@ if uploaded_file is not None:
         st.header("📋 Thêm Lịch Tập")
         with st.container():
             r1c1, r1c2 = st.columns([1, 1])
-            with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Múa Quạt")
+            with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Trà và cà phê, Chốn sa mạc")
             with r1c2: 
                 use_all = st.checkbox("Chọn tất cả")
                 t_mem = all_members if use_all else st.multiselect("Thành viên", all_members, placeholder="Chọn người...")
@@ -359,4 +359,5 @@ if uploaded_file is not None:
                 st.download_button("📥 Tải CSV", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Final.csv", "text/csv")
 
     except Exception as e: st.error(f"Lỗi: {e}")
+
 
