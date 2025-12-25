@@ -22,7 +22,7 @@ st.set_page_config(page_title="Tool xếp lịch tập VVC", layout="wide")
 if 'app_version' not in st.session_state:
     st.session_state['app_version'] = None
 if st.session_state['app_version'] != CURRRENT_VERSION:
-    st.toast(f"🔄 Web đã cập nhật lên phiên bản {CURRRENT_VERSION}")
+    st.toast(f"Web đã cập nhật lên phiên bản {CURRRENT_VERSION}")
     time.sleep(0.5)
     st.toast("Xem nội dung cập nhật trong phần 'Thông tin Ứng dụng' ở thanh bên!")
     st.session_state['app_version'] = CURRRENT_VERSION
@@ -418,4 +418,5 @@ if uploaded_file is not None:
                 st.download_button("📥 Tải Lịch Tuần (CSV)", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Tuan.csv", "text/csv")
 
     except Exception as e: st.error(f"Lỗi: {e}")
+
 
