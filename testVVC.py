@@ -1,11 +1,24 @@
 import streamlit as st
 import pandas as pd
 import re
-from datetime import time
+import time
+from datetime import time as dt_time
 
+# Cập nhật 
+CURRRENT_VERSION = "v2.0.4"
+# Nội dung cập nhật
+CHANGELOG = {
+    "v2.0.4": [ "Sửa lỗi xếp lịch, xóa giới hạn thời gian bắt đầu tập cho thời gian bắt buộc."]
+}
 # Cấu hình trang
 st.set_page_config(page_title="Tool xếp lịch tập VVC", layout="wide")
-
+if 'app_version' not in st.session_state:
+    st.session_state['app_version'] = None
+if st.session_state['app_version'] != CURRRENT_VERSION:
+    st.toast(f"🔄 Web đã cập nhật lên phiên bản {CURRRENT_VERSION}, vui lòng xem nội dung cập nhật để biết thêm thông tin!")
+    time.sleep(0.5)
+    st.toast("Xem nội dung cập nhật trong phần ' Thông tin Ứng dụng' ở thanh bên!")
+    st.session_state['app_version'] = CURRRENT_VERSION
 # --- CSS DARK MODE ---
 st.markdown("""
 <style>
@@ -45,7 +58,15 @@ if 'tasks' not in st.session_state: st.session_state['tasks'] = []
 st.title("📅 Tool xếp lịch tập VVC")
 st.markdown("---")
 
-# 1. UPLOAD
+# 1. UPLOAD & UPDATE
+st.sidebar.title(f"{CURRRENT_VERSION}")
+with st.sidebar.expander("Thông tin bản cập nhật ", expanded=False):
+    for ver, notes in CHANGELOG.items():
+        st.markdown(f"### 🆕 Phiên bản {ver}")
+        st.markdown(f"**{ver}**")
+        for note in notes:
+            st.caption(f"- {note}")
+        st.divider()
 st.sidebar.header("📥 Dữ liệu nguồn")
 uploaded_file = st.sidebar.file_uploader("Thả file CSV vào đây", type=['csv'])
 
@@ -235,10 +256,10 @@ if uploaded_file is not None:
         if df_day.empty: st.warning("⚠️ Ngày này không có dữ liệu!"); st.stop()
         st.markdown("---")
 
-        st.header("📋 Thêm Lịch Tập")
+        st.header("📋 Thêm Bài Tập")
         with st.container():
             r1c1, r1c2 = st.columns([1, 1])
-            with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Trà và cà phê, Chốn sa mạc")
+            with r1c1: t_name = st.text_input("Tên bài", placeholder="VD: Múa Quạt")
             with r1c2: 
                 use_all = st.checkbox("Chọn tất cả")
                 t_mem = all_members if use_all else st.multiselect("Thành viên", all_members, placeholder="Chọn người...")
@@ -246,7 +267,7 @@ if uploaded_file is not None:
             r2c1, r2c2 = st.columns([1, 1])
             with r2c1: t_dur = st.selectbox("Thời lượng", [45, 60, 90, 120, 150], index=1)
             with r2c2: 
-                prio_options = {"Bắt buộc đủ 100% (Ưu tiên 1)": 1, " Tiêu chuẩn (Ưu tiên 2)": 2, "Tập cuối (Ưu tiên 3)": 3}
+                prio_options = {"🔥 VIP (Ưu tiên 1)": 1, "💎 Tiêu chuẩn (Ưu tiên 2)": 2, "🐢 Chốt sổ (Ưu tiên 3)": 3}
                 t_prio_label = st.selectbox("Mức độ ưu tiên", list(prio_options.keys()), index=1)
                 t_prio_val = prio_options[t_prio_label]
 
@@ -359,6 +380,3 @@ if uploaded_file is not None:
                 st.download_button("📥 Tải CSV", res.to_csv(index=False).encode('utf-8-sig'), "Lich_Final.csv", "text/csv")
 
     except Exception as e: st.error(f"Lỗi: {e}")
-
-
-
