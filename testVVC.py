@@ -267,7 +267,7 @@ if uploaded_file is not None:
             r2c1, r2c2 = st.columns([1, 1])
             with r2c1: t_dur = st.selectbox("Thời lượng", [45, 60, 90, 120, 150], index=1)
             with r2c2: 
-                prio_options = {"🔥 VIP (Ưu tiên 1)": 1, "💎 Tiêu chuẩn (Ưu tiên 2)": 2, "🐢 Chốt sổ (Ưu tiên 3)": 3}
+                prio_options = {"Bắt buộc đủ  (Ưu tiên 1)": 1, "Tiêu chuẩn (Ưu tiên 2)": 2, "Tập cuối (Ưu tiên 3)": 3}
                 t_prio_label = st.selectbox("Mức độ ưu tiên", list(prio_options.keys()), index=1)
                 t_prio_val = prio_options[t_prio_label]
 
